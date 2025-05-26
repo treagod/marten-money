@@ -2,7 +2,7 @@ require "./spec_helper"
 
 describe MartenMoney::Field::Money do
   describe "#create" do
-    it "creates an Invoice with all paramters provided" do
+    it "creates an Invoice when all parameters are provided" do
       Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(20_00, "USD"))
 
       invoice = Invoice.first!
@@ -16,13 +16,13 @@ describe MartenMoney::Field::Money do
       invoice.tax.should eq(Money.new(20_00, "USD"))
     end
 
-    it "raises a Marten::DB::Errors::InvalidRecord error when one argument is not given" do
+    it "raises a Marten::DB::Errors::InvalidRecord error if a required argument is missing" do
       expect_raises(Marten::DB::Errors::InvalidRecord) do
         Invoice.create!(total: Money.new(10_00, "USD"))
       end
     end
 
-    it "creates an SpecialInvoice with all paramters provided" do
+    it "creates a SpecialInvoice when all parameters are provided" do
       SpecialInvoice.create!(
         total: Money.new(10_00, "USD"),
         tax: Money.new(20_00, "USD"),
@@ -44,7 +44,7 @@ describe MartenMoney::Field::Money do
       invoice.foo.should eq(Money.new(30_00, "EUR"))
     end
 
-    it "create InvoiceOptions with no paramters provided" do
+    it "creates an InvoiceOptions instance without any parameters" do
       invoice = InvoiceOptions.new
 
       invoice.save
@@ -52,6 +52,33 @@ describe MartenMoney::Field::Money do
       invoice.total_amount.should be_nil
       invoice.total_currency.should be_nil
       invoice.total.should be_nil
+    end
+  end
+
+  describe "assignment and retrieval" do
+    it "allows reassignment of a Money field and persists the change" do
+      invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(0, "USD"))
+
+      invoice.total = Money.new(25_00, "USD")
+      invoice.save!
+
+      reloaded = Invoice.first!
+      reloaded.total_amount.should eq 25_00
+      reloaded.total_currency.should eq "USD"
+      reloaded.total.should eq Money.new(25_00, "USD")
+    end
+
+    it "allows reassignment via the underlying fields of a Money field and persists the change" do
+      invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(0, "USD"))
+
+      invoice.total_amount = 25_00
+      invoice.total_currency = "EUR"
+      invoice.save!
+
+      reloaded = Invoice.first!
+      reloaded.total_amount.should eq 25_00
+      reloaded.total_currency.should eq "EUR"
+      reloaded.total.should eq Money.new(25_00, "EUR")
     end
   end
 end

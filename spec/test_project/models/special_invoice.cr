@@ -1,3 +1,3 @@
 class SpecialInvoice < Invoice
-  money_field :foo
+  field :foo, :money
 end

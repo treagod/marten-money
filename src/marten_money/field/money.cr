@@ -1,67 +1,134 @@
 module MartenMoney
   module Field
-    module Money
-      macro included
-        _begin_model_setup
-
-        macro inherited
-          _begin_model_setup
-
-          macro finished
-            _finish_model_setup
-          end
-        end
-
-        macro finished
-          _finish_model_setup
-        end
+    class Money < Marten::DB::Field::Base
+      def initialize(
+        @id : ::String,
+        @blank = false,
+        @null = false,
+      )
+        @unique = false
+        @index = false
+        @primary_key = false
+        @db_column = nil
       end
 
-      macro _begin_model_setup
-        MARTEN_MONEY_FIELDS = [] of String
+      def db_column
+        # No-op
       end
 
-      macro _finish_model_setup
-        private def initialize_field_values(kwargs)
-          named_hash = kwargs.to_h
-          {% for field_name in MARTEN_MONEY_FIELDS %}
-            money_arg_{{field_name.id}} = named_hash.delete(:{{field_name.id}})
-          {% end %}
-
-          super(named_hash)
-
-          {% for field_name in MARTEN_MONEY_FIELDS %}
-          self.{{field_name.id}} = money_arg_{{field_name.id}} if money_arg_{{field_name.id}}
-          {% end %}
-        end
+      def default
+        # No-op
       end
 
-      macro money_field(field_name, *, blank = false, null = false)
-        {% MARTEN_MONEY_FIELDS << field_name.id %}
+      def from_db(value) : Nil
+        # No-op
+      end
 
-        {% amount_column = "#{field_name.id}_amount".id %}
-        {% currency_column = "#{field_name.id}_currency".id %}
+      def from_db_result_set(result_set : ::DB::ResultSet) : Nil
+        # No-op
+      end
 
-        field :{{amount_column}}, :big_int, blank: {{ blank }}, null: {{ null }}
-        field :{{currency_column}}, :string, max_size: 3, blank: {{ blank }}, null: {{ null }}
+      def perform_validation(record : Marten::Model)
+        # No-op
+      end
 
-        def {{field_name.id}} : Money{% if null %}?{% end %}
-          {% if !null %}
-            Money.new(self.{{amount_column}}!, self.{{currency_column}}!)
-          {% else %}
-            Money.new(self.{{amount_column}}!, self.{{currency_column}}!) if self.{{amount_column}}
+      def to_column : Marten::DB::Management::Column::Base?
+        # No-op
+      end
+
+      def to_db(value) : ::DB::Any
+        # No-op
+      end
+
+      # :nodoc:
+      macro check_definition(field_id, kwargs)
+        {% if (kwargs && kwargs[:amount_field_id] &&
+                !kwargs[:amount_field_id] == "" &&
+                kwargs[:amount_field_id] == kwargs[:currency_field_id]
+                ) %}
+          {% raise "amount_field_id and currency_field_id cannot be the same" %}
+        {% end %}
+      end
+
+      # :nodoc:
+      macro contribute_to_model(model_klass, field_id, field_ann, kwargs)
+        {% if kwargs.is_a?(NilLiteral) %}
+          {% amt_field_id = "#{field_id}_amount".id %}
+          {% cur_field_id = "#{field_id}_currency".id %}
+        {% else %}
+          {% amt_field_id = kwargs[:amount_field_id] || "#{field_id}_amount".id %}
+          {% cur_field_id = kwargs[:currency_field_id] || "#{field_id}_currency".id %}
+        {% end %}
+
+        class ::{{ model_klass }}
+          register_field(
+            {{ @type }}.new(
+              {{ field_id.stringify }},
+              {% unless kwargs.is_a?(NilLiteral) %}**{{ kwargs }}{% end %}
+            )
+          )
+
+          field(:{{amt_field_id}}, :big_int{% if !kwargs.is_a?(NilLiteral) %},
+            {% if kwargs[:blank] %}
+              blank: true,
+            {% end %}
+            {% if kwargs[:null] %}
+              null: true,
+            {% end %}
           {% end %}
-        end
+          )
+          field(:{{cur_field_id}}, :string, max_size: 3{% if !kwargs.is_a?(NilLiteral) %},
+            {% if kwargs[:blank] %}
+              blank: true,
+            {% end %}
+            {% if kwargs[:null] %}
+              null: true,
+            {% end %}
+          {% end %}
+          )
 
-        def {{field_name.id}}=(value : Money)
-          self.{{amount_column}} = value.fractional.to_i64
-          self.{{currency_column}} = value.currency.code
-        end
+          {% if !model_klass.resolve.abstract? %}
+            @[Marten::DB::Model::Table::FieldInstanceVariable(
+              field_klass: {{ @type }},
+              field_kwargs: {{ kwargs }},
+              field_type: {{ field_ann[:exposed_type] }},
+              model_klass: {{ model_klass }}
+            )]
+            @{{ field_id }} : ::Money?
+            @__cached_{{ field_id }} : Money?
 
-        def {{field_name.id}}=(value : Int32 | Int64)
-          self.{{amount_column}} = value
+            def {{ field_id }} : Money?
+              @__cached_{{ field_id }} ||= begin
+                a = self.{{amt_field_id}}
+                c = self.{{cur_field_id}}
+                Money.new(a.not_nil!, c.not_nil!) unless a.nil? || c.nil?
+              end
+            end
+
+            def {{ field_id }}! : Money
+              {{ field_id }}.not_nil!
+            end
+
+            def {{ field_id }}=(val : Money)
+              self.{{amt_field_id}} = val.fractional.to_i64
+              self.{{cur_field_id}} = val.currency.code
+              @__cached_{{ field_id }}      = val
+            end
+
+            def {{ field_id }}=(val : JSON::Serializable)
+              self.{{ field_id }} = Money.from_json(val.to_json)
+            end
+
+            def {{ field_id }}=(val : Nil)
+              self.{{amt_field_id}} = nil
+              self.{{cur_field_id}} = nil
+              @__cached_{{ field_id }}      = nil
+            end
+          {% end %}
         end
       end
     end
   end
 end
+
+Marten::DB::Field.register(:money, MartenMoney::Field::Money)
