@@ -95,28 +95,28 @@ module MartenMoney
               model_klass: {{ model_klass }}
             )]
             @{{ field_id }} : ::Money?
-            @__cached_{{ field_id }} : Money?
+            @__cached_{{ field_id }} : ::Money?
 
-            def {{ field_id }} : Money?
+            def {{ field_id }} : ::Money?
               @__cached_{{ field_id }} ||= begin
                 a = self.{{amt_field_id}}
                 c = self.{{cur_field_id}}
-                Money.new(a.not_nil!, c.not_nil!) unless a.nil? || c.nil?
+                ::Money.new(a.not_nil!, c.not_nil!) unless a.nil? || c.nil?
               end
             end
 
-            def {{ field_id }}! : Money
+            def {{ field_id }}! : ::Money
               {{ field_id }}.not_nil!
             end
 
-            def {{ field_id }}=(val : Money)
+            def {{ field_id }}=(val : ::Money)
               self.{{amt_field_id}} = val.fractional.to_i64
               self.{{cur_field_id}} = val.currency.code
               @__cached_{{ field_id }}      = val
             end
 
             def {{ field_id }}=(val : JSON::Serializable)
-              self.{{ field_id }} = Money.from_json(val.to_json)
+              self.{{ field_id }} = ::Money.from_json(val.to_json)
             end
 
             def {{ field_id }}=(val : Nil)
