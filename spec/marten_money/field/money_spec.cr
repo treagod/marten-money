@@ -16,6 +16,16 @@ describe MartenMoney::Field::Money do
       invoice.tax.should eq(Money.new(20_00, "USD"))
     end
 
+    it "creates an Invoice with default total value when no parameters are provided" do
+      InvoiceDefault.create!
+
+      invoice = InvoiceDefault.first!
+
+      invoice.total_amount.should eq(10_00)
+      invoice.total_currency.should eq("USD")
+      invoice.total.should eq(Money.new(10_00, "USD"))
+    end
+
     it "raises a Marten::DB::Errors::InvalidRecord error if a required argument is missing" do
       expect_raises(Marten::DB::Errors::InvalidRecord) do
         Invoice.create!(total: Money.new(10_00, "USD"))

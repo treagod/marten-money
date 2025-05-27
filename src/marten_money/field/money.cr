@@ -1,10 +1,13 @@
 module MartenMoney
   module Field
     class Money < Marten::DB::Field::Base
+      getter default
+
       def initialize(
         @id : ::String,
         @blank = false,
         @null = false,
+        @default : ::Money | Nil = nil,
       )
         @unique = false
         @index = false
@@ -42,10 +45,8 @@ module MartenMoney
 
       # :nodoc:
       macro check_definition(field_id, kwargs)
-        {% if (kwargs && kwargs[:amount_field_id] &&
-                !kwargs[:amount_field_id] == "" &&
-                kwargs[:amount_field_id] == kwargs[:currency_field_id]
-                ) %}
+        {% if kwargs && kwargs[:amount_field_id] && kwargs[:currency_field_id] &&
+                kwargs[:amount_field_id] != "" && kwargs[:amount_field_id] == kwargs[:currency_field_id] %}
           {% raise "amount_field_id and currency_field_id cannot be the same" %}
         {% end %}
       end
@@ -68,12 +69,31 @@ module MartenMoney
             )
           )
 
+          {% if kwargs && kwargs[:default] %}
+            {% call = kwargs[:default] %}
+            {% unless call.is_a?(Call) &&
+                        call.name == "new" &&
+                        call.receiver.is_a?(Path) &&
+                        call.receiver.stringify == "Money" &&
+                        call.args.size == 2 &&
+                        call.args[0].is_a?(NumberLiteral) &&
+                        call.args[1].is_a?(StringLiteral) %}
+              {% raise "default: must be a literal Money.new(integer, \"CUR\")" %}
+            {% end %}
+
+            {% amount_lit = call.args[0] %}
+            {% currency_lit = call.args[1] %}
+          {% end %}
+
           field(:{{amt_field_id}}, :big_int{% if !kwargs.is_a?(NilLiteral) %},
             {% if kwargs[:blank] %}
               blank: true,
             {% end %}
             {% if kwargs[:null] %}
               null: true,
+            {% end %}
+            {% if kwargs[:default] %}
+              default: {{ amount_lit }},
             {% end %}
           {% end %}
           )
@@ -83,6 +103,9 @@ module MartenMoney
             {% end %}
             {% if kwargs[:null] %}
               null: true,
+            {% end %}
+            {% if kwargs[:default] %}
+              default: {{ currency_lit }},
             {% end %}
           {% end %}
           )
