@@ -1,11 +1,9 @@
 require "./spec_helper"
 
 describe MartenMoney::Field::Money do
-  describe "#create" do
+  describe "::contribute_to_model" do
     it "creates an Invoice when all parameters are provided" do
-      Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(20_00, "USD"))
-
-      invoice = Invoice.first!
+      invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(20_00, "USD"))
 
       invoice.total_amount.should eq(10_00)
       invoice.total_currency.should eq("USD")
@@ -16,10 +14,15 @@ describe MartenMoney::Field::Money do
       invoice.tax.should eq(Money.new(20_00, "USD"))
     end
 
-    it "creates an Invoice with default total value when no parameters are provided" do
-      InvoiceDefault.create!
+    it "creates an Invoice with renamed underlying Money fields" do
+      invoice = InvoiceRename.create!(total: Money.new(10_00, "USD"))
 
-      invoice = InvoiceDefault.first!
+      invoice.foo.should eq(10_00)
+      invoice.bar.should eq("USD")
+    end
+
+    it "creates an Invoice with default total value when no parameters are provided" do
+      invoice = InvoiceDefault.create!
 
       invoice.total_amount.should eq(10_00)
       invoice.total_currency.should eq("USD")
@@ -33,13 +36,11 @@ describe MartenMoney::Field::Money do
     end
 
     it "creates a SpecialInvoice when all parameters are provided" do
-      SpecialInvoice.create!(
+      invoice = SpecialInvoice.create!(
         total: Money.new(10_00, "USD"),
         tax: Money.new(20_00, "USD"),
         foo: Money.new(30_00, "EUR")
       )
-
-      invoice = SpecialInvoice.first!
 
       invoice.total_amount.should eq(10_00)
       invoice.total_currency.should eq("USD")

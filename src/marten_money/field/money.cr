@@ -8,6 +8,8 @@ module MartenMoney
         @blank = false,
         @null = false,
         @default : ::Money | Nil = nil,
+        amount_field_id : ::String | ::Symbol | Nil = nil,
+        currency_field_id : ::String | ::Symbol | Nil = nil,
       )
         @unique = false
         @index = false
@@ -57,8 +59,10 @@ module MartenMoney
           {% amt_field_id = "#{field_id}_amount".id %}
           {% cur_field_id = "#{field_id}_currency".id %}
         {% else %}
-          {% amt_field_id = kwargs[:amount_field_id] || "#{field_id}_amount".id %}
-          {% cur_field_id = kwargs[:currency_field_id] || "#{field_id}_currency".id %}
+          {% amt_field = kwargs[:amount_field_id] || "#{field_id}_amount" %}
+          {% cur_field = kwargs[:currency_field_id] || "#{field_id}_currency" %}
+          {% amt_field_id = amt_field.id %}
+          {% cur_field_id = cur_field.id %}
         {% end %}
 
         class ::{{ model_klass }}
