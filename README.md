@@ -70,6 +70,17 @@ puts invoice.total.currency   # => "USD"
 puts invoice.total == Money.new(1000, "USD") # => true
 ```
 
+### Field Options
+
+| Option              | Type                 | Default                         | Description                                                         |
+|---------------------|----------------------|---------------------------------|---------------------------------------------------------------------|
+| `blank`             | `Bool`               | `false`                         | Whether the field allows blank (empty) values.                      |
+| `null`              | `Bool`               | `false`                         | Whether the field allows `NULL` values in the database.             |
+| `default`           | `Money`              | `nil`                           | Default value written as a literal, e.g. `Money.new(1000, "USD")`.  |
+| `amount_field_id`   | `String` / `Symbol`  | `:"<field>_amount"`             | Overrides the name of the amount column.                            |
+| `currency_field_id` | `String` / `Symbol`  | `:"<field>_currency"`           | Overrides the name of the currency column.                          |
+| `store_currency`    | `Bool`               | `true`                          | If `false`, skips creating/storing the currency column.             |
+
 ## Configuration
 
 To configure the Money shard (e.g., set default currency, enable infinite precision), create a Marten initializer:
