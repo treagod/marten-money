@@ -1,53 +1,54 @@
 module MartenMoney
-  module Field
-    class Money < Marten::DB::Field::Base
-      getter default
+  module DB
+    module Field
+      class Money < Marten::DB::Field::Base
+        getter default
 
-      def initialize(
-        @id : ::String,
-        @blank = false,
-        @null = false,
-        @default : ::Money | Nil = nil,
-        amount_field_id : ::String | ::Symbol | Nil = nil,
-        currency_field_id : ::String | ::Symbol | Nil = nil,
-        store_currency : Bool = true,
-      )
-        @unique = false
-        @index = false
-        @primary_key = false
-        @db_column = nil
-      end
+        def initialize(
+          @id : ::String,
+          @blank = false,
+          @null = false,
+          @default : ::Money | Nil = nil,
+          amount_field_id : ::String | ::Symbol | Nil = nil,
+          currency_field_id : ::String | ::Symbol | Nil = nil,
+          store_currency : Bool = true,
+        )
+          @unique = false
+          @index = false
+          @primary_key = false
+          @db_column = nil
+        end
 
-      def db_column
-        # No-op
-      end
+        def db_column
+          # No-op
+        end
 
-      def default
-        # No-op
-      end
+        def default
+          @default
+        end
 
-      def from_db(value) : Nil
-        # No-op
-      end
+        def from_db(value) : Nil
+          # No-op
+        end
 
-      def from_db_result_set(result_set : ::DB::ResultSet) : Nil
-        # No-op
-      end
+        def from_db_result_set(result_set : ::DB::ResultSet) : Nil
+          # No-op
+        end
 
-      def perform_validation(record : Marten::Model)
-        # No-op
-      end
+        def perform_validation(record : Marten::Model)
+          # No-op
+        end
 
-      def to_column : Marten::DB::Management::Column::Base?
-        # No-op
-      end
+        def to_column : Marten::DB::Management::Column::Base?
+          # No-op
+        end
 
-      def to_db(value) : ::DB::Any
-        # No-op
-      end
+        def to_db(value) : ::DB::Any
+          # No-op
+        end
 
-      # :nodoc:
-      macro check_definition(field_id, kwargs)
+        # :nodoc:
+        macro check_definition(field_id, kwargs)
         {% if kwargs && kwargs[:amount_field_id] && kwargs[:currency_field_id] &&
                 kwargs[:amount_field_id] == kwargs[:currency_field_id] %}
           {% raise "amount_field_id and currency_field_id cannot be the same" %}
@@ -58,8 +59,8 @@ module MartenMoney
         {% end %}
       end
 
-      # :nodoc:
-      macro contribute_to_model(model_klass, field_id, field_ann, kwargs)
+        # :nodoc:
+        macro contribute_to_model(model_klass, field_id, field_ann, kwargs)
         {% store_currency = true %}
 
         {% if !kwargs.is_a?(NilLiteral) && kwargs[:store_currency].is_a?(BoolLiteral) %}
@@ -178,8 +179,9 @@ module MartenMoney
           {% end %}
         end
       end
+      end
     end
   end
 end
 
-Marten::DB::Field.register(:money, MartenMoney::Field::Money)
+Marten::DB::Field.register(:money, MartenMoney::DB::Field::Money)

@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-describe MartenMoney::Field::Money do
+describe MartenMoney::DB::Field::Money do
   describe "::contribute_to_model" do
     it "creates an Invoice when all parameters are provided" do
       invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(20_00, "USD"))
