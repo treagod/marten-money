@@ -21,6 +21,14 @@ describe MartenMoney::Field::Money do
       invoice.bar.should eq("USD")
     end
 
+    it "does not respond to a currency field if store_currency is set to false" do
+      invoice = InvoiceNoCurrency.create!(total: Money.new(10_00, "USD"))
+
+      invoice.responds_to?(:total_amount).should be_true
+      invoice.total_amount.should eq(10_00)
+      invoice.responds_to?(:total_currency).should be_false
+    end
+
     it "creates an Invoice with default total value when no parameters are provided" do
       invoice = InvoiceDefault.create!
 

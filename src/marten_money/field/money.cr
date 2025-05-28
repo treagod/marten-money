@@ -10,6 +10,7 @@ module MartenMoney
         @default : ::Money | Nil = nil,
         amount_field_id : ::String | ::Symbol | Nil = nil,
         currency_field_id : ::String | ::Symbol | Nil = nil,
+        store_currency : Bool = true,
       )
         @unique = false
         @index = false
@@ -48,13 +49,23 @@ module MartenMoney
       # :nodoc:
       macro check_definition(field_id, kwargs)
         {% if kwargs && kwargs[:amount_field_id] && kwargs[:currency_field_id] &&
-                kwargs[:amount_field_id] != "" && kwargs[:amount_field_id] == kwargs[:currency_field_id] %}
+                kwargs[:amount_field_id] == kwargs[:currency_field_id] %}
           {% raise "amount_field_id and currency_field_id cannot be the same" %}
+        {% end %}
+
+        {% if kwargs && kwargs[:currency_field_id] && kwargs[:store_currency] == false %}
+          {% raise "currency_field_id is useless when store_currency: false" %}
         {% end %}
       end
 
       # :nodoc:
       macro contribute_to_model(model_klass, field_id, field_ann, kwargs)
+        {% store_currency = true %}
+
+        {% if !kwargs.is_a?(NilLiteral) && kwargs[:store_currency].is_a?(BoolLiteral) %}
+          {% store_currency = kwargs[:store_currency] %}
+        {% end %}
+
         {% if kwargs.is_a?(NilLiteral) %}
           {% amt_field_id = "#{field_id}_amount".id %}
           {% cur_field_id = "#{field_id}_currency".id %}
@@ -101,25 +112,29 @@ module MartenMoney
             {% end %}
           {% end %}
           )
-          field(:{{cur_field_id}}, :string, max_size: 3{% if !kwargs.is_a?(NilLiteral) %},
-            {% if kwargs[:blank] %}
-              blank: true,
+
+          {% if store_currency %}
+            field(:{{cur_field_id}}, :string, max_size: 3{% if !kwargs.is_a?(NilLiteral) %},
+              {% if kwargs[:blank] %}
+                blank: true,
+              {% end %}
+              {% if kwargs[:null] %}
+                null: true,
+              {% end %}
+              {% if kwargs[:default] %}
+                default: {{ currency_lit }},
+              {% end %}
             {% end %}
-            {% if kwargs[:null] %}
-              null: true,
-            {% end %}
-            {% if kwargs[:default] %}
-              default: {{ currency_lit }},
-            {% end %}
+            )
           {% end %}
-          )
 
           {% if !model_klass.resolve.abstract? %}
             @[Marten::DB::Model::Table::FieldInstanceVariable(
               field_klass: {{ @type }},
               field_kwargs: {{ kwargs }},
               field_type: {{ field_ann[:exposed_type] }},
-              model_klass: {{ model_klass }}
+              model_klass: {{ model_klass }},
+              accessor: {{ field_id }},
             )]
             @{{ field_id }} : ::Money?
             @__cached_{{ field_id }} : ::Money?
@@ -127,8 +142,13 @@ module MartenMoney
             def {{ field_id }} : ::Money?
               @__cached_{{ field_id }} ||= begin
                 a = self.{{amt_field_id}}
-                c = self.{{cur_field_id}}
-                ::Money.new(a.not_nil!, c.not_nil!) unless a.nil? || c.nil?
+                {% if store_currency %}
+                  c = self.{{cur_field_id}}
+                {% end %}
+                ::Money.new(
+                  a.not_nil!,
+                  {% if store_currency %}c.not_nil!,{% end %}
+                ) unless a.nil?{% if store_currency %} || c.nil?{% end %}
               end
             end
 
@@ -138,7 +158,9 @@ module MartenMoney
 
             def {{ field_id }}=(val : ::Money)
               self.{{amt_field_id}} = val.fractional.to_i64
+              {% if store_currency %}
               self.{{cur_field_id}} = val.currency.code
+              {% end %}
               @__cached_{{ field_id }}      = val
             end
 
@@ -148,7 +170,9 @@ module MartenMoney
 
             def {{ field_id }}=(val : Nil)
               self.{{amt_field_id}} = nil
+              {% if store_currency %}
               self.{{cur_field_id}} = nil
+              {% end %}
               @__cached_{{ field_id }}      = nil
             end
           {% end %}
