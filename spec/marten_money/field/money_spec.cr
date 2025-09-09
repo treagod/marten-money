@@ -99,5 +99,18 @@ describe MartenMoney::DB::Field::Money do
       reloaded.total_currency.should eq "EUR"
       reloaded.total.should eq Money.new(25_00, "EUR")
     end
+
+    it "does not override persisted values with defaults on reload" do
+      inv = InvoiceDefault.create!(total: Money.new(25_00, "EUR"))
+
+      inv.total_amount.should eq 25_00
+      inv.total_currency.should eq "EUR"
+      inv.total.should eq Money.new(25_00, "EUR")
+
+      reloaded = InvoiceDefault.get!(id: inv.id)
+      reloaded.total_amount.should eq 25_00
+      reloaded.total_currency.should eq "EUR"
+      reloaded.total.should eq Money.new(25_00, "EUR")
+    end
   end
 end

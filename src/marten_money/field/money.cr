@@ -138,19 +138,18 @@ module MartenMoney
               accessor: {{ field_id }},
             )]
             @{{ field_id }} : ::Money?
-            @__cached_{{ field_id }} : ::Money?
 
             def {{ field_id }} : ::Money?
-              @__cached_{{ field_id }} ||= begin
-                a = self.{{amt_field_id}}
-                {% if store_currency %}
-                  c = self.{{cur_field_id}}
-                {% end %}
-                ::Money.new(
-                  a.not_nil!,
-                  {% if store_currency %}c.not_nil!,{% end %}
-                ) unless a.nil?{% if store_currency %} || c.nil?{% end %}
-              end
+              a = self.{{amt_field_id}}
+              {% if store_currency %}
+                c = self.{{cur_field_id}}
+              {% end %}
+              return nil if a.nil?{% if store_currency %} || c.nil?{% end %}
+
+              ::Money.new(
+                a.not_nil!,
+                {% if store_currency %}c.not_nil!,{% end %}
+              )
             end
 
             def {{ field_id }}! : ::Money
@@ -162,7 +161,6 @@ module MartenMoney
               {% if store_currency %}
               self.{{cur_field_id}} = val.currency.code
               {% end %}
-              @__cached_{{ field_id }}      = val
             end
 
             def {{ field_id }}=(val : JSON::Serializable)
@@ -174,7 +172,6 @@ module MartenMoney
               {% if store_currency %}
               self.{{cur_field_id}} = nil
               {% end %}
-              @__cached_{{ field_id }}      = nil
             end
           {% end %}
         end
