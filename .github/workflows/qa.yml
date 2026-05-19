@@ -12,9 +12,9 @@ jobs:
   qa:
     runs-on: ubuntu-latest
     container:
-      image: crystallang/crystal:1.16.3
+      image: crystallang/crystal:1.20.2
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Install shards
         run: shards install --ignore-crystal-version
       - name: Run crystal format tool

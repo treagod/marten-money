@@ -15,15 +15,15 @@ jobs:
       fail-fast: false
       matrix:
         crystal: [
-          '1.15.1',
-          '1.16.3',
-          '1.17.0',
+          '1.18.2',
+          '1.19.2',
+          '1.20.2',
           'nightly',
         ]
     container:
       image: crystallang/crystal:${{ matrix.crystal }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install required packages
       run: |
         apt-get update
@@ -31,7 +31,7 @@ jobs:
     - name: Install shards
       run: shards install --ignore-crystal-version
     - name: Cache Crystal
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/crystal
         key: ${{ runner.os }}-crystal
