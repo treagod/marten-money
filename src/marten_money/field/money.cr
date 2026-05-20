@@ -8,9 +8,9 @@ module MartenMoney
           @id : ::String,
           @blank = false,
           @null = false,
-          @default : ::Money | Nil = nil,
-          amount_field_id : ::String | ::Symbol | Nil = nil,
-          currency_field_id : ::String | ::Symbol | Nil = nil,
+          @default : ::Money? = nil,
+          amount_field_id : ::String | ::Symbol? = nil,
+          currency_field_id : ::String | ::Symbol? = nil,
           store_currency : Bool = true,
         )
           @unique = false
@@ -101,7 +101,7 @@ module MartenMoney
             {% currency_lit = call.args[1] %}
           {% end %}
 
-          field(:{{amt_field_id}}, :big_int{% if !kwargs.is_a?(NilLiteral) %},
+          field(:{{ amt_field_id }}, :big_int{% if !kwargs.is_a?(NilLiteral) %},
             {% if kwargs[:blank] %}
               blank: true,
             {% end %}
@@ -115,7 +115,7 @@ module MartenMoney
           )
 
           {% if store_currency %}
-            field(:{{cur_field_id}}, :string, max_size: 3{% if !kwargs.is_a?(NilLiteral) %},
+            field(:{{ cur_field_id }}, :string, max_size: 3{% if !kwargs.is_a?(NilLiteral) %},
               {% if kwargs[:blank] %}
                 blank: true,
               {% end %}
@@ -140,9 +140,9 @@ module MartenMoney
             @{{ field_id }} : ::Money?
 
             def {{ field_id }} : ::Money?
-              a = self.{{amt_field_id}}
+              a = self.{{ amt_field_id }}
               {% if store_currency %}
-                c = self.{{cur_field_id}}
+                c = self.{{ cur_field_id }}
               {% end %}
               return nil if a.nil?{% if store_currency %} || c.nil?{% end %}
 
@@ -157,9 +157,9 @@ module MartenMoney
             end
 
             def {{ field_id }}=(val : ::Money)
-              self.{{amt_field_id}} = val.fractional.to_i64
+              self.{{ amt_field_id }} = val.fractional.to_i64
               {% if store_currency %}
-              self.{{cur_field_id}} = val.currency.code
+              self.{{ cur_field_id }} = val.currency.code
               {% end %}
             end
 
@@ -168,9 +168,9 @@ module MartenMoney
             end
 
             def {{ field_id }}=(val : Nil)
-              self.{{amt_field_id}} = nil
+              self.{{ amt_field_id }} = nil
               {% if store_currency %}
-              self.{{cur_field_id}} = nil
+              self.{{ cur_field_id }} = nil
               {% end %}
             end
           {% end %}
