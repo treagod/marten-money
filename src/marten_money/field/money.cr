@@ -11,8 +11,10 @@ module MartenMoney
           @default : ::Money? = nil,
           amount_field_id : ::String | ::Symbol? = nil,
           currency_field_id : ::String | ::Symbol? = nil,
-          store_currency : Bool = true,
+          @store_currency : Bool = true,
         )
+          @amount_field_id = (amount_field_id || "#{@id}_amount").to_s
+          @currency_field_id = (currency_field_id || "#{@id}_currency").to_s
           @unique = false
           @index = false
           @primary_key = false
@@ -36,7 +38,21 @@ module MartenMoney
         end
 
         def perform_validation(record : Marten::Model)
-          # No-op
+          return unless @store_currency
+
+          amount = record.get_field_value(@amount_field_id)
+          currency = record.get_field_value(@currency_field_id)
+
+          return if amount.nil? && currency.nil?
+
+          if amount.nil? || currency.nil?
+            record.errors.add(id, "amount and currency must either both be set or both be nil")
+          end
+
+          return unless currency
+          return if ::Money::Currency.find?(currency.to_s)
+
+          record.errors.add(@currency_field_id, "is not a valid currency")
         end
 
         def to_column : Marten::DB::Management::Column::Base?

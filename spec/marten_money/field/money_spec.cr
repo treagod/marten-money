@@ -113,4 +113,54 @@ describe MartenMoney::DB::Field::Money do
       reloaded.total.should eq Money.new(25_00, "EUR")
     end
   end
+
+  describe "validation" do
+    it "accepts known currency codes" do
+      invoice = Invoice.new(total: Money.new(10_00, "USD"), tax: Money.new(0, "EUR"))
+
+      invoice.valid?.should be_true
+    end
+
+    it "rejects unknown currency codes" do
+      invoice = Invoice.new(total: Money.new(10_00, "USD"), tax: Money.new(0, "EUR"))
+      invoice.total_currency = "ZZZ"
+
+      invoice.valid?.should be_false
+      invoice.errors[:total_currency].map(&.message).should contain("is not a valid currency")
+    end
+
+    it "rejects unknown currency codes on renamed underlying fields" do
+      invoice = InvoiceRename.new(total: Money.new(10_00, "USD"))
+      invoice.bar = "ZZZ"
+
+      invoice.valid?.should be_false
+      invoice.errors[:bar].map(&.message).should contain("is not a valid currency")
+    end
+
+    it "rejects an amount without a currency" do
+      invoice = InvoiceOptions.new
+      invoice.total_amount = 10_00
+
+      invoice.valid?.should be_false
+      invoice.errors[:total].map(&.message).should contain(
+        "amount and currency must either both be set or both be nil"
+      )
+    end
+
+    it "rejects a currency without an amount" do
+      invoice = InvoiceOptions.new
+      invoice.total_currency = "USD"
+
+      invoice.valid?.should be_false
+      invoice.errors[:total].map(&.message).should contain(
+        "amount and currency must either both be set or both be nil"
+      )
+    end
+
+    it "does not validate a currency field if store_currency is set to false" do
+      invoice = InvoiceNoCurrency.new(total: Money.new(10_00, "USD"))
+
+      invoice.valid?.should be_true
+    end
+  end
 end
