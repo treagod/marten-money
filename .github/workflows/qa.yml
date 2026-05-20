@@ -18,6 +18,10 @@ jobs:
       - name: Install shards
         run: shards install --ignore-crystal-version
       - name: Run crystal format tool
-        run: crystal tool format
+        run: crystal tool format --check
+      - name: Build ameba
+        run: |
+          mkdir -p bin
+          crystal build lib/ameba/bin/ameba.cr -o bin/ameba
       - name: Run ameba
-        run: bin/ameba
+        run: ./bin/ameba
