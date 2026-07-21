@@ -74,6 +74,101 @@ describe MartenMoney::DB::Field::Money do
     end
   end
 
+  describe "default handling" do
+    it "applies the configured default when no value is provided" do
+      invoice = InvoiceDefault.new
+
+      invoice.total_amount.should eq 10_00
+      invoice.total_currency.should eq "USD"
+      invoice.total.should eq Money.new(10_00, "USD")
+    end
+
+    it "does not override a Money value provided through the composite field" do
+      invoice = InvoiceDefault.new(total: Money.new(25_00, "EUR"))
+
+      invoice.total_amount.should eq 25_00
+      invoice.total_currency.should eq "EUR"
+      invoice.total.should eq Money.new(25_00, "EUR")
+    end
+
+    it "does not override values provided through the generated fields" do
+      invoice = InvoiceDefault.new(total_amount: 25_00, total_currency: "EUR")
+
+      invoice.total_amount.should eq 25_00
+      invoice.total_currency.should eq "EUR"
+      invoice.total.should eq Money.new(25_00, "EUR")
+    end
+
+    it "falls back to the field default when only the amount is provided" do
+      invoice = InvoiceDefault.new(total_amount: 25_00)
+
+      invoice.total_amount.should eq 25_00
+      invoice.total_currency.should eq "USD"
+      invoice.total.should eq Money.new(25_00, "USD")
+    end
+
+    it "falls back to the field default when only the currency is provided" do
+      invoice = InvoiceDefault.new(total_currency: "EUR")
+
+      invoice.total_amount.should eq 10_00
+      invoice.total_currency.should eq "EUR"
+      invoice.total.should eq Money.new(10_00, "EUR")
+    end
+
+    it "persists values provided through the generated fields over the configured default" do
+      invoice = InvoiceDefault.create!(total_amount: 25_00, total_currency: "EUR")
+
+      reloaded = InvoiceDefault.get!(id: invoice.id)
+      reloaded.total_amount.should eq 25_00
+      reloaded.total_currency.should eq "EUR"
+      reloaded.total.should eq Money.new(25_00, "EUR")
+    end
+
+    it "applies the configured default to renamed underlying fields" do
+      invoice = InvoiceRenameDefault.new
+
+      invoice.foo.should eq 10_00
+      invoice.bar.should eq "USD"
+      invoice.total.should eq Money.new(10_00, "USD")
+    end
+
+    it "does not override renamed underlying fields with the configured default" do
+      invoice = InvoiceRenameDefault.new(foo: 25_00, bar: "EUR")
+
+      invoice.foo.should eq 25_00
+      invoice.bar.should eq "EUR"
+      invoice.total.should eq Money.new(25_00, "EUR")
+    end
+  end
+
+  describe "#default" do
+    it "returns nil even when a default is configured" do
+      field = MartenMoney::DB::Field::Money.new("total", default: Money.new(10_00, "USD"))
+
+      field.default.should be_nil
+    end
+  end
+
+  describe "#money_default" do
+    it "returns the configured default Money value" do
+      field = MartenMoney::DB::Field::Money.new("total", default: Money.new(10_00, "USD"))
+
+      field.money_default.should eq Money.new(10_00, "USD")
+    end
+
+    it "returns nil when no default is configured" do
+      field = MartenMoney::DB::Field::Money.new("total")
+
+      field.money_default.should be_nil
+    end
+
+    it "exposes the configured default of a model field" do
+      field = InvoiceDefault.get_field("total").as(MartenMoney::DB::Field::Money)
+
+      field.money_default.should eq Money.new(10_00, "USD")
+    end
+  end
+
   describe "assignment and retrieval" do
     it "allows reassignment of a Money field and persists the change" do
       invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(0, "USD"))

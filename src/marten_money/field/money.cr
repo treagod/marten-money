@@ -2,8 +2,6 @@ module MartenMoney
   module DB
     module Field
       class Money < Marten::DB::Field::Base
-        getter default
-
         def initialize(
           @id : ::String,
           @blank = false,
@@ -25,8 +23,12 @@ module MartenMoney
           # No-op
         end
 
+        # Returns `nil` to keep the virtual field out of Marten's default value initialization.
+        #
+        # The generated amount and currency fields own the persisted defaults. The configured
+        # default remains available as metadata through `#money_default`.
         def default
-          @default
+          # No-op
         end
 
         def from_db(value) : Nil
@@ -35,6 +37,11 @@ module MartenMoney
 
         def from_db_result_set(result_set : ::DB::ResultSet) : Nil
           # No-op
+        end
+
+        # Returns the configured default `Money` value, if any.
+        def money_default : ::Money?
+          @default
         end
 
         def perform_validation(record : Marten::Model)
