@@ -21,12 +21,13 @@ describe MartenMoney::DB::Field::Money do
       invoice.bar.should eq("USD")
     end
 
-    it "does not respond to a currency field if store_currency is set to false" do
-      invoice = InvoiceNoCurrency.create!(total: Money.new(10_00, "USD"))
+    it "does not generate a currency field when fixed_currency is configured" do
+      invoice = InvoiceFixedCurrency.create!(total: Money.new(10_00, "EUR"))
 
       invoice.responds_to?(:total_amount).should be_true
       invoice.total_amount.should eq(10_00)
       invoice.responds_to?(:total_currency).should be_false
+      invoice.total.should eq Money.new(10_00, "EUR")
     end
 
     it "creates an Invoice with default total value when no parameters are provided" do
@@ -169,6 +170,143 @@ describe MartenMoney::DB::Field::Money do
     end
   end
 
+  describe "#fixed_currency" do
+    it "returns the configured currency" do
+      field = InvoiceFixedCurrency.get_field("total").as(MartenMoney::DB::Field::Money)
+
+      field.fixed_currency.should eq Money::Currency.find("EUR")
+    end
+
+    it "returns nil when no fixed currency is configured" do
+      field = Invoice.get_field("total").as(MartenMoney::DB::Field::Money)
+
+      field.fixed_currency.should be_nil
+    end
+  end
+
+  describe "fixed currency handling" do
+    it "persists and reloads values using the configured currency" do
+      invoice = InvoiceFixedCurrency.create!(total: Money.new(25_00, "EUR"))
+
+      reloaded = InvoiceFixedCurrency.get!(id: invoice.id)
+      reloaded.total_amount.should eq 25_00
+      reloaded.total.should eq Money.new(25_00, "EUR")
+    end
+
+    it "does not depend on Money.default_currency when reloading values" do
+      previous_currency = Money.default_currency
+      invoice = InvoiceFixedCurrency.create!(total: Money.new(25_00, "EUR"))
+
+      begin
+        Money.default_currency = "JPY"
+
+        reloaded = InvoiceFixedCurrency.get!(id: invoice.id)
+        reloaded.total.should eq Money.new(25_00, "EUR")
+      ensure
+        Money.default_currency = previous_currency
+      end
+    end
+
+    it "rejects assignments using another currency before changing the amount" do
+      invoice = InvoiceFixedCurrency.new(total: Money.new(25_00, "EUR"))
+
+      expect_raises(ArgumentError, "Money field 'total' requires currency EUR, got USD") do
+        invoice.total = Money.new(30_00, "USD")
+      end
+
+      invoice.total_amount.should eq 25_00
+      invoice.total.should eq Money.new(25_00, "EUR")
+    end
+
+    it "applies a default using the configured currency" do
+      invoice = InvoiceFixedCurrencyDefault.create!
+
+      invoice.total_amount.should eq 10_00
+      invoice.total.should eq Money.new(10_00, "EUR")
+
+      reloaded = InvoiceFixedCurrencyDefault.get!(id: invoice.id)
+      reloaded.total.should eq Money.new(10_00, "EUR")
+    end
+
+    it "persists and reloads values using a renamed amount field" do
+      invoice = InvoiceFixedCurrencyRename.create!(total: Money.new(25_00, "EUR"))
+
+      invoice.responds_to?(:foo).should be_true
+      invoice.responds_to?(:total_amount).should be_false
+      invoice.responds_to?(:total_currency).should be_false
+
+      reloaded = InvoiceFixedCurrencyRename.get!(id: invoice.id)
+      reloaded.foo.should eq 25_00
+      reloaded.total.should eq Money.new(25_00, "EUR")
+    end
+  end
+
+  describe "fixed currency configuration" do
+    it "rejects unknown currencies" do
+      expect_raises(
+        ArgumentError,
+        "fixed_currency \"ZZZ\" is not a known Money currency for field 'total'"
+      ) do
+        MartenMoney::DB::Field::Money.new("total", fixed_currency: "ZZZ")
+      end
+    end
+
+    it "rejects defaults using another currency" do
+      expect_raises(
+        ArgumentError,
+        "default currency USD must match fixed_currency EUR for field 'total'"
+      ) do
+        MartenMoney::DB::Field::Money.new(
+          "total",
+          fixed_currency: "EUR",
+          default: Money.new(10_00, "USD")
+        )
+      end
+    end
+
+    it "accepts the deprecated store_currency option when a fixed currency is provided" do
+      field = MartenMoney::DB::Field::Money.new(
+        "total",
+        fixed_currency: "EUR",
+        store_currency: false
+      )
+
+      field.fixed_currency.should eq Money::Currency.find("EUR")
+    end
+
+    it "rejects the deprecated store_currency option without a fixed currency" do
+      expect_raises(
+        ArgumentError,
+        "store_currency: false is deprecated; replace it with fixed_currency: \"EUR\""
+      ) do
+        MartenMoney::DB::Field::Money.new("total", store_currency: false)
+      end
+    end
+
+    it "rejects enabling currency storage with a fixed currency" do
+      expect_raises(ArgumentError, "store_currency: true cannot be used with fixed_currency") do
+        MartenMoney::DB::Field::Money.new(
+          "total",
+          fixed_currency: "EUR",
+          store_currency: true
+        )
+      end
+    end
+
+    it "rejects a currency field name with a fixed currency" do
+      expect_raises(
+        ArgumentError,
+        "currency_field_id cannot be used with fixed_currency because no currency column is generated"
+      ) do
+        MartenMoney::DB::Field::Money.new(
+          "total",
+          fixed_currency: "EUR",
+          currency_field_id: "currency"
+        )
+      end
+    end
+  end
+
   describe "assignment and retrieval" do
     it "allows reassignment of a Money field and persists the change" do
       invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(0, "USD"))
@@ -250,12 +388,6 @@ describe MartenMoney::DB::Field::Money do
       invoice.errors[:total].map(&.message).should contain(
         "amount and currency must either both be set or both be nil"
       )
-    end
-
-    it "does not validate a currency field if store_currency is set to false" do
-      invoice = InvoiceNoCurrency.new(total: Money.new(10_00, "USD"))
-
-      invoice.valid?.should be_true
     end
   end
 end

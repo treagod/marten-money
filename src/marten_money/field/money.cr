@@ -2,6 +2,9 @@ module MartenMoney
   module DB
     module Field
       class Money < Marten::DB::Field::Base
+        # Returns the configured fixed currency, if any.
+        getter fixed_currency : ::Money::Currency?
+
         def initialize(
           @id : ::String,
           @blank = false,
@@ -9,14 +12,35 @@ module MartenMoney
           @default : ::Money? = nil,
           amount_field_id : ::String | ::Symbol? = nil,
           currency_field_id : ::String | ::Symbol? = nil,
-          @store_currency : Bool = true,
+          fixed_currency : ::String | ::Symbol | Nil = nil,
+          store_currency : Bool? = nil,
         )
           @amount_field_id = (amount_field_id || "#{@id}_amount").to_s
           @currency_field_id = (currency_field_id || "#{@id}_currency").to_s
+          @fixed_currency = resolve_fixed_currency(fixed_currency)
+          @store_currency = @fixed_currency.nil?
           @unique = false
           @index = false
           @primary_key = false
           @db_column = nil
+
+          if store_currency == false && @fixed_currency.nil?
+            raise ArgumentError.new(
+              "store_currency: false is deprecated; replace it with fixed_currency: \"EUR\""
+            )
+          end
+
+          if store_currency && @fixed_currency
+            raise ArgumentError.new("store_currency: true cannot be used with fixed_currency")
+          end
+
+          if currency_field_id && @fixed_currency
+            raise ArgumentError.new(
+              "currency_field_id cannot be used with fixed_currency because no currency column is generated"
+            )
+          end
+
+          validate_default_currency
         end
 
         def db_column
@@ -70,6 +94,24 @@ module MartenMoney
           # No-op
         end
 
+        private def resolve_fixed_currency(currency : ::String | ::Symbol | Nil) : ::Money::Currency?
+          return if currency.nil?
+
+          ::Money::Currency.find?(currency) || raise ArgumentError.new(
+            "fixed_currency #{currency.inspect} is not a known Money currency for field '#{@id}'"
+          )
+        end
+
+        private def validate_default_currency
+          return unless @default && @fixed_currency
+          return if @default.not_nil!.currency == @fixed_currency
+
+          raise ArgumentError.new(
+            "default currency #{@default.not_nil!.currency.code} must match fixed_currency " \
+            "#{@fixed_currency.not_nil!.code} for field '#{@id}'"
+          )
+        end
+
         # :nodoc:
         macro check_definition(field_id, kwargs)
         {% if kwargs && kwargs[:amount_field_id] && kwargs[:currency_field_id] &&
@@ -77,18 +119,33 @@ module MartenMoney
           {% raise "amount_field_id and currency_field_id cannot be the same" %}
         {% end %}
 
-        {% if kwargs && kwargs[:currency_field_id] && kwargs[:store_currency] == false %}
-          {% raise "currency_field_id is useless when store_currency: false" %}
+        {% if kwargs && kwargs[:fixed_currency] &&
+                !kwargs[:fixed_currency].is_a?(StringLiteral) &&
+                !kwargs[:fixed_currency].is_a?(SymbolLiteral) %}
+          {% raise "fixed_currency must be a string or symbol literal" %}
+        {% end %}
+
+        {% if kwargs && kwargs[:fixed_currency] && kwargs[:currency_field_id] %}
+          {% raise "currency_field_id cannot be used with fixed_currency because no currency column is generated" %}
+        {% end %}
+
+        {% if kwargs && kwargs[:fixed_currency] && kwargs[:store_currency] == true %}
+          {% raise "store_currency: true cannot be used with fixed_currency" %}
+        {% end %}
+
+        {% if kwargs && kwargs[:store_currency] == false %}
+          {% unless kwargs[:fixed_currency] %}
+            {% raise "store_currency: false is deprecated; replace it with fixed_currency: \"EUR\"" %}
+          {% end %}
+
+          {% warning "store_currency: false is deprecated; remove it and keep fixed_currency" %}
         {% end %}
       end
 
         # :nodoc:
         macro contribute_to_model(model_klass, field_id, field_ann, kwargs)
-        {% store_currency = true %}
-
-        {% if !kwargs.is_a?(NilLiteral) && kwargs[:store_currency].is_a?(BoolLiteral) %}
-          {% store_currency = kwargs[:store_currency] %}
-        {% end %}
+        {% fixed_currency = kwargs && kwargs[:fixed_currency] %}
+        {% store_currency = !fixed_currency %}
 
         {% if kwargs.is_a?(NilLiteral) %}
           {% amt_field_id = "#{field_id}_amount".id %}
@@ -171,7 +228,11 @@ module MartenMoney
 
               ::Money.new(
                 a.not_nil!,
-                {% if store_currency %}c.not_nil!,{% end %}
+                {% if store_currency %}
+                  c.not_nil!,
+                {% else %}
+                  _{{ field_id }}_fixed_currency,
+                {% end %}
               )
             end
 
@@ -180,6 +241,15 @@ module MartenMoney
             end
 
             def {{ field_id }}=(val : ::Money)
+              {% unless store_currency %}
+              fixed_currency = _{{ field_id }}_fixed_currency
+              unless val.currency == fixed_currency
+                raise ArgumentError.new(
+                  "Money field '{{ field_id }}' requires currency #{fixed_currency.code}, got #{val.currency.code}"
+                )
+              end
+              {% end %}
+
               self.{{ amt_field_id }} = val.fractional.to_i64
               {% if store_currency %}
               self.{{ cur_field_id }} = val.currency.code
@@ -196,6 +266,16 @@ module MartenMoney
               self.{{ cur_field_id }} = nil
               {% end %}
             end
+
+            {% unless store_currency %}
+            private def _{{ field_id }}_fixed_currency : ::Money::Currency
+              self.class
+                .get_field({{ field_id.stringify }})
+                .as(MartenMoney::DB::Field::Money)
+                .fixed_currency
+                .not_nil!
+            end
+            {% end %}
           {% end %}
         end
       end

@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- `:money` fields now support `fixed_currency`, which persists only the fractional amount and always reconstructs
+  values with the configured known Money currency, independently of `Money.default_currency`.
+
+### Changed
+
+- Fixed-currency fields reject assignments and defaults using another currency.
+
+### Deprecated
+
+- `store_currency: false` now requires `fixed_currency` and emits a deprecation warning. Using it without an explicit
+  fixed currency fails with migration guidance instead of silently relying on `Money.default_currency`.
+
 ### Fixed
 
 - `:money` field defaults no longer overwrite explicitly initialized amount/currency fields

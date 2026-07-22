@@ -7,6 +7,7 @@
 - Drop-in `:money` field type for Marten models
 - Accurate handling of monetary values using the Money type.
 - Automatic generation of database fields for amount and currency.
+- Optional fixed-currency storage using only an amount column.
 - Support for multiple currencies with ISO 4217 codes.
 - Built-in validations via the `Money` class to ensure data integrity.
 
@@ -79,7 +80,45 @@ puts invoice.total == Money.new(1000, "USD") # => true
 | `default`           | `Money`              | `nil`                           | Default value written as a literal, e.g. `Money.new(1000, "USD")`. Explicitly provided values take precedence. |
 | `amount_field_id`   | `String` / `Symbol`  | `:"<field>_amount"`             | Overrides the name of the amount column.                                                                       |
 | `currency_field_id` | `String` / `Symbol`  | `:"<field>_currency"`           | Overrides the name of the currency column.                                                                     |
-| `store_currency`    | `Bool`               | `true`                          | If `false`, skips creating/storing the currency column.                                                        |
+| `fixed_currency`    | `String` / `Symbol`  | `nil`                           | Stores only the amount and always reconstructs values using this known Money currency.                         |
+| `store_currency`    | `Bool`               | `true`                          | Deprecated. `false` is accepted only with `fixed_currency` during the deprecation period.                      |
+
+### Fixed-Currency Storage
+
+Use `fixed_currency` when every value in a field uses the same currency and the database should store only the
+fractional amount:
+
+```crystal
+class Invoice < Marten::Model
+  field :id, :big_int, primary_key: true, auto: true
+
+  field :total, :money, fixed_currency: "EUR"
+end
+```
+
+This generates `total_amount` without a `total_currency` column. Loaded values always use EUR, regardless of
+`Money.default_currency`:
+
+```crystal
+invoice.total # => Money.new(invoice.total_amount, "EUR")
+```
+
+The configured code must be a known Money currency. Assigning a `Money` value in another currency raises an
+`ArgumentError`, and any configured `default` must use the fixed currency.
+
+`store_currency: false` is deprecated and no longer falls back to `Money.default_currency`. During the deprecation
+period, it compiles only when paired with `fixed_currency` and emits a warning; remove `store_currency` to migrate:
+
+```crystal
+# Deprecated compatibility form
+field :total, :money, fixed_currency: "EUR", store_currency: false
+
+# Preferred form
+field :total, :money, fixed_currency: "EUR"
+```
+
+Changing an existing two-column field to `fixed_currency` removes the generated currency field. Generate a Marten
+migration to remove that database column. Existing `store_currency: false` schemas require no database change.
 
 ## Configuration
 
