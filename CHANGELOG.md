@@ -22,6 +22,9 @@
   (e.g. `InvoiceDefault.new(total_amount: 25_00, total_currency: "EUR")`). Defaults are applied
   exclusively through the generated fields; the composite field exposes its configured default
   as metadata via `#money_default`, and its `#default` now returns `nil`.
+- Money values that cannot be represented exactly as `Int64` minor units — e.g. sub-minor-unit precision
+  under `Money.infinite_precision`, or amounts beyond the `Int64` range — now raise an `ArgumentError` on
+  assignment instead of being silently truncated when persisted.
 
 ## [0.1.0] - 2025-05-28
 

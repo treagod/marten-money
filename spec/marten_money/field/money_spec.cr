@@ -307,6 +307,128 @@ describe MartenMoney::DB::Field::Money do
     end
   end
 
+  describe "precision handling" do
+    it "stores conventional Money values exactly" do
+      invoice = InvoiceOptions.create!(total: Money.new(10_05, "USD"))
+
+      reloaded = InvoiceOptions.get!(id: invoice.id)
+      reloaded.total_amount.should eq 10_05
+      reloaded.total.should eq Money.new(10_05, "USD")
+    end
+
+    it "stores exact values while infinite precision is enabled" do
+      previous = Money.infinite_precision?
+      Money.infinite_precision = true
+
+      begin
+        invoice = InvoiceOptions.create!(total: Money.from_amount(10.05, "USD"))
+
+        reloaded = InvoiceOptions.get!(id: invoice.id)
+        reloaded.total_amount.should eq 10_05
+        reloaded.total.should eq Money.new(10_05, "USD")
+      ensure
+        Money.infinite_precision = previous
+      end
+    end
+
+    it "rejects values containing non-representable fractional units" do
+      previous = Money.infinite_precision?
+      Money.infinite_precision = true
+
+      begin
+        invoice = InvoiceOptions.new
+
+        expect_raises(
+          ArgumentError,
+          "Money field 'total' cannot store 10.005 EUR exactly: 1000.5 is not a whole number of minor units"
+        ) do
+          invoice.total = Money.from_amount(10.005, "EUR")
+        end
+
+        invoice.total_amount.should be_nil
+        invoice.total_currency.should be_nil
+        invoice.total.should be_nil
+      ensure
+        Money.infinite_precision = previous
+      end
+    end
+
+    it "stores negative values exactly" do
+      invoice = InvoiceOptions.create!(total: Money.new(-25_00, "EUR"))
+
+      reloaded = InvoiceOptions.get!(id: invoice.id)
+      reloaded.total_amount.should eq -25_00
+      reloaded.total.should eq Money.new(-25_00, "EUR")
+    end
+
+    it "rejects negative values containing non-representable fractional units" do
+      previous = Money.infinite_precision?
+      Money.infinite_precision = true
+
+      begin
+        invoice = InvoiceOptions.new
+
+        expect_raises(
+          ArgumentError,
+          "Money field 'total' cannot store -10.005 EUR exactly: -1000.5 is not a whole number of minor units"
+        ) do
+          invoice.total = Money.from_amount(-10.005, "EUR")
+        end
+
+        invoice.total_amount.should be_nil
+      ensure
+        Money.infinite_precision = previous
+      end
+    end
+
+    it "stores values at the Int64 boundaries" do
+      invoice = InvoiceOptions.create!(total: Money.new(Int64::MAX, "USD"))
+
+      reloaded = InvoiceOptions.get!(id: invoice.id)
+      reloaded.total_amount.should eq Int64::MAX
+      reloaded.total.should eq Money.new(Int64::MAX, "USD")
+
+      reloaded.total = Money.new(Int64::MIN, "USD")
+      reloaded.save!
+
+      InvoiceOptions.get!(id: invoice.id).total_amount.should eq Int64::MIN
+    end
+
+    it "rejects values beyond the Int64 boundaries" do
+      invoice = InvoiceOptions.new(total: Money.new(25_00, "USD"))
+
+      expect_raises(
+        ArgumentError,
+        "Money field 'total' cannot store 9.223372036854775808e+16 USD exactly: " \
+        "9223372036854775808 minor units do not fit into the Int64 amount column"
+      ) do
+        invoice.total = Money.new(Int64::MAX, "USD") + Money.new(1, "USD")
+      end
+
+      invoice.total_amount.should eq 25_00
+      invoice.total_currency.should eq "USD"
+    end
+
+    it "keeps the previous value when a reassignment is rejected" do
+      previous = Money.infinite_precision?
+      Money.infinite_precision = true
+
+      begin
+        invoice = InvoiceOptions.new(total: Money.new(25_00, "EUR"))
+
+        expect_raises(ArgumentError) do
+          invoice.total = Money.from_amount(10.005, "EUR")
+        end
+
+        invoice.total_amount.should eq 25_00
+        invoice.total_currency.should eq "EUR"
+        invoice.total.should eq Money.new(25_00, "EUR")
+      ensure
+        Money.infinite_precision = previous
+      end
+    end
+  end
+
   describe "assignment and retrieval" do
     it "allows reassignment of a Money field and persists the change" do
       invoice = Invoice.create!(total: Money.new(10_00, "USD"), tax: Money.new(0, "USD"))

@@ -63,6 +63,31 @@ module MartenMoney
           # No-op
         end
 
+        # Converts *value* into an `Int64` amount of minor units for the generated amount field.
+        #
+        # The exact amount is derived from `Money#amount` because `Money#fractional` silently drops
+        # sub-minor-unit precision when `Money.infinite_precision?` is enabled. Values that cannot be
+        # represented exactly as an `Int64` raise an `ArgumentError`.
+        def self.fractional_to_i64(value : ::Money, field_id : ::String) : Int64
+          fractional = value.amount * value.currency.subunit_to_unit
+
+          unless fractional == fractional.trunc
+            raise ArgumentError.new(
+              "Money field '#{field_id}' cannot store #{value.amount} #{value.currency.code} exactly: " \
+              "#{fractional} is not a whole number of minor units"
+            )
+          end
+
+          unless fractional >= Int64::MIN && fractional <= Int64::MAX
+            raise ArgumentError.new(
+              "Money field '#{field_id}' cannot store #{value.amount} #{value.currency.code} exactly: " \
+              "#{fractional.to_big_i} minor units do not fit into the Int64 amount column"
+            )
+          end
+
+          fractional.to_big_i.to_i64
+        end
+
         # Returns the configured default `Money` value, if any.
         def money_default : ::Money?
           @default
@@ -250,7 +275,7 @@ module MartenMoney
               end
               {% end %}
 
-              self.{{ amt_field_id }} = val.fractional.to_i64
+              self.{{ amt_field_id }} = {{ @type }}.fractional_to_i64(val, {{ field_id.stringify }})
               {% if store_currency %}
               self.{{ cur_field_id }} = val.currency.code
               {% end %}

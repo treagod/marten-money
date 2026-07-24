@@ -120,6 +120,19 @@ field :total, :money, fixed_currency: "EUR"
 Changing an existing two-column field to `fixed_currency` removes the generated currency field. Generate a Marten
 migration to remove that database column. Existing `store_currency: false` schemas require no database change.
 
+### Precision
+
+Money values are persisted as a whole number of minor units (e.g. cents) in the generated `big_int` amount column.
+Arbitrary sub-minor-unit precision cannot be stored: assigning a value whose amount is not a whole number of minor
+units — or does not fit into an `Int64` — raises an `ArgumentError` instead of silently truncating the value:
+
+```crystal
+Money.infinite_precision = true
+
+invoice.total = Money.from_amount(10.005, "EUR")
+# => ArgumentError: Money field 'total' cannot store 10.005 EUR exactly: 1000.5 is not a whole number of minor units
+```
+
 ## Configuration
 
 To configure the Money shard (e.g., set default currency, enable infinite precision), create a Marten initializer:
