@@ -1,0 +1,2 @@
+class ConcreteInvoice < AbstractInvoice
+end

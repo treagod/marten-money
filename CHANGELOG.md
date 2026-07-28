@@ -25,6 +25,12 @@
 - Money values that cannot be represented exactly as `Int64` minor units — e.g. sub-minor-unit precision
   under `Money.infinite_precision`, or amounts beyond the `Int64` range — now raise an `ArgumentError` on
   assignment instead of being silently truncated when persisted.
+- The `:money` field now registers `::Money?` as its exposed field type instead of `Nil`, so Marten's
+  field metadata and the generated model annotations reflect the actual accessor type. The database
+  conversion methods remain no-ops because values are loaded through the generated fields.
+- `:money` fields declared on abstract models no longer fail to compile: the field type is registered
+  under a string identifier, matching how Marten resolves inherited field types when contributing an
+  abstract parent's fields to its concrete children.
 
 ## [0.1.0] - 2025-05-28
 

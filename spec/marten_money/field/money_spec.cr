@@ -184,6 +184,46 @@ describe MartenMoney::DB::Field::Money do
     end
   end
 
+  describe "exposed type" do
+    it "registers ::Money? as the exposed field type" do
+      {% begin %}
+        value = nil.as({{ MartenMoney::DB::Field::Money.annotation(Marten::DB::Field::Registration)[:exposed_type] }})
+
+        typeof(value).should eq Union(::Money, ::Nil)
+        typeof(value).should_not eq ::Nil
+      {% end %}
+    end
+
+    it "returns ::Money? from generated accessors" do
+      typeof(Invoice.new.total).should eq Union(::Money, ::Nil)
+      typeof(InvoiceOptions.new.total).should eq Union(::Money, ::Nil)
+    end
+
+    it "returns ::Money from non-nil accessors" do
+      typeof(Invoice.new.total!).should eq ::Money
+      typeof(InvoiceOptions.new.total!).should eq ::Money
+    end
+
+    it "preserves the exposed type on models inheriting from an abstract model" do
+      typeof(ConcreteInvoice.new.total).should eq Union(::Money, ::Nil)
+      typeof(ConcreteInvoice.new.total!).should eq ::Money
+    end
+
+    it "preserves the exposed type on inherited concrete models" do
+      typeof(SpecialInvoice.new.total).should eq Union(::Money, ::Nil)
+      typeof(SpecialInvoice.new.foo!).should eq ::Money
+    end
+
+    it "persists and reloads values on models inheriting from an abstract model" do
+      invoice = ConcreteInvoice.create!(total: Money.new(25_00, "EUR"))
+
+      reloaded = ConcreteInvoice.get!(id: invoice.id)
+      reloaded.total_amount.should eq 25_00
+      reloaded.total_currency.should eq "EUR"
+      reloaded.total.should eq Money.new(25_00, "EUR")
+    end
+  end
+
   describe "fixed currency handling" do
     it "persists and reloads values using the configured currency" do
       invoice = InvoiceFixedCurrency.create!(total: Money.new(25_00, "EUR"))

@@ -55,11 +55,11 @@ module MartenMoney
           # No-op
         end
 
-        def from_db(value) : Nil
+        def from_db(value) : ::Money?
           # No-op
         end
 
-        def from_db_result_set(result_set : ::DB::ResultSet) : Nil
+        def from_db_result_set(result_set : ::DB::ResultSet) : ::Money?
           # No-op
         end
 
@@ -309,4 +309,4 @@ module MartenMoney
   end
 end
 
-Marten::DB::Field.register(:money, MartenMoney::DB::Field::Money)
+Marten::DB::Field.register("money", MartenMoney::DB::Field::Money)
