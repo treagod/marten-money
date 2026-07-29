@@ -1,4 +1,3 @@
-require "marten"
 require "../../../src/marten_money"
 
 class AmountEqualsCurrency < Marten::Model

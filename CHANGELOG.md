@@ -37,6 +37,8 @@
 - `:money` fields declared on abstract models no longer fail to compile: the field type is registered
   under a string identifier, matching how Marten resolves inherited field types when contributing an
   abstract parent's fields to its concrete children.
+- `require "marten_money"` now works standalone: the shard's entrypoint requires `marten` itself instead of
+  relying on the host application having loaded it beforehand.
 
 ## [0.1.0] - 2025-05-28
 

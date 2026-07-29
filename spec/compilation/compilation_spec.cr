@@ -1,10 +1,11 @@
 require "./spec_helper"
 
-private def compile_fixture(name : String) : {Process::Status, String}
+private def compile_fixture(name : String, env : Process::Env = nil) : {Process::Status, String}
   stderr = IO::Memory.new
   status = Process.run(
     ENV.fetch("CRYSTAL", "crystal"),
     ["build", "--no-codegen", File.join("spec", "compilation", "fixtures", name)],
+    env: env,
     chdir: File.expand_path("../..", __DIR__),
     error: stderr
   )
@@ -12,6 +13,13 @@ private def compile_fixture(name : String) : {Process::Status, String}
 end
 
 describe "Money field compile-time identifier validation" do
+  it "compiles a standalone program requiring only marten_money", tags: "compilation" do
+    crystal_path = `#{ENV.fetch("CRYSTAL", "crystal")} env CRYSTAL_PATH`.strip
+    status, output = compile_fixture("standalone_require.cr", env: {"CRYSTAL_PATH" => "src:#{crystal_path}"})
+
+    fail "Compilation failed:\n#{output}" unless status.success?
+  end
+
   it "rejects an amount_field_id equal to the implicit currency_field_id", tags: "compilation" do
     status, output = compile_fixture("amount_field_id_equals_implicit_currency.cr")
 

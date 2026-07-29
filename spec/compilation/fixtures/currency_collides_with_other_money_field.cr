@@ -1,4 +1,3 @@
-require "marten"
 require "../../../src/marten_money"
 
 class CurrencyCollidesWithOtherMoneyField < Marten::Model

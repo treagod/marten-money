@@ -1,3 +1,4 @@
+require "marten"
 require "money"
 require "./marten_money/app"
 
