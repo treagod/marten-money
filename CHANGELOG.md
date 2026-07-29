@@ -10,6 +10,12 @@
 ### Changed
 
 - Fixed-currency fields reject assignments and defaults using another currency.
+- `:money` fields now validate their final resolved amount/currency identifiers at compile time. Definitions
+  fail to compile — naming the money field and the conflicting identifier — when both identifiers resolve to
+  the same name, when one resolves to the money field's own id, or when one collides with a field already
+  defined on the model (including other money fields' generated fields) or inherited from an abstract or
+  concrete parent. Previously only identical explicit `amount_field_id`/`currency_field_id` literals were
+  caught, and only when written with the same literal type.
 
 ### Deprecated
 

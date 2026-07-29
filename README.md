@@ -83,6 +83,10 @@ puts invoice.total == Money.new(1000, "USD") # => true
 | `fixed_currency`    | `String` / `Symbol`  | `nil`                           | Stores only the amount and always reconstructs values using this known Money currency.                         |
 | `store_currency`    | `Bool`               | `true`                          | Deprecated. `false` is accepted only with `fixed_currency` during the deprecation period.                      |
 
+Identifier collisions are rejected at compile time: a `:money` field fails to compile when `amount_field_id` and
+`currency_field_id` resolve to the same identifier, to the money field's own id, or to a field already defined on
+the model or inherited from a parent.
+
 ### Fixed-Currency Storage
 
 Use `fixed_currency` when every value in a field uses the same currency and the database should store only the

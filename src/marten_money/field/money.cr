@@ -40,6 +40,25 @@ module MartenMoney
             )
           end
 
+          if @store_currency && @amount_field_id == @currency_field_id
+            raise ArgumentError.new(
+              "Money field '#{@id}' resolves amount_field_id and currency_field_id to the same " \
+              "identifier '#{@amount_field_id}'"
+            )
+          end
+
+          if @amount_field_id == @id
+            raise ArgumentError.new(
+              "Money field '#{@id}' resolves its amount_field_id to the money field's own identifier '#{@id}'"
+            )
+          end
+
+          if @store_currency && @currency_field_id == @id
+            raise ArgumentError.new(
+              "Money field '#{@id}' resolves its currency_field_id to the money field's own identifier '#{@id}'"
+            )
+          end
+
           validate_default_currency
         end
 
@@ -139,11 +158,6 @@ module MartenMoney
 
         # :nodoc:
         macro check_definition(field_id, kwargs)
-        {% if kwargs && kwargs[:amount_field_id] && kwargs[:currency_field_id] &&
-                kwargs[:amount_field_id] == kwargs[:currency_field_id] %}
-          {% raise "amount_field_id and currency_field_id cannot be the same" %}
-        {% end %}
-
         {% if kwargs && kwargs[:fixed_currency] &&
                 !kwargs[:fixed_currency].is_a?(StringLiteral) &&
                 !kwargs[:fixed_currency].is_a?(SymbolLiteral) %}
@@ -180,6 +194,74 @@ module MartenMoney
           {% cur_field = kwargs[:currency_field_id] || "#{field_id}_currency" %}
           {% amt_field_id = amt_field.id %}
           {% cur_field_id = cur_field.id %}
+        {% end %}
+
+        {% model_type = model_klass.resolve %}
+        {% field_id_str = field_id.stringify %}
+        {% amt_field_id_str = amt_field_id.stringify %}
+        {% cur_field_id_str = cur_field_id.stringify %}
+
+        {% if store_currency && amt_field_id_str == cur_field_id_str %}
+          {% raise "Money field '#{field_id}' resolves amount_field_id and currency_field_id to the same " +
+                   "identifier '#{amt_field_id}'" %}
+        {% end %}
+
+        {% if amt_field_id_str == field_id_str %}
+          {% raise "Money field '#{field_id}' resolves its amount_field_id to the money field's own " +
+                   "identifier '#{field_id}'" %}
+        {% end %}
+
+        {% if store_currency && cur_field_id_str == field_id_str %}
+          {% raise "Money field '#{field_id}' resolves its currency_field_id to the money field's own " +
+                   "identifier '#{field_id}'" %}
+        {% end %}
+
+        {% generated_ids = [{amt_field_id_str, "amount"}] %}
+        {% if store_currency %}
+          {% generated_ids << {cur_field_id_str, "currency"} %}
+        {% end %}
+
+        # An ancestor declaring this exact money field (same id, same resolved identifiers) means Marten is
+        # re-contributing an inherited field: its generated identifiers legitimately exist in the inherited
+        # FIELDS_ entries and were already validated when the ancestor itself was compiled.
+        {% inherited_money_field = false %}
+        {% for ancestor_model in model_type.ancestors %}
+          {% if !inherited_money_field && ancestor_model.has_constant?("FIELDS_") %}
+            {% ancestor_entry = ancestor_model.constant("FIELDS_")[field_id_str] %}
+            {% if ancestor_entry && ancestor_entry[:type] == "money" %}
+              {% ancestor_kwargs = ancestor_entry[:kwargs] %}
+              {% ancestor_amt = (ancestor_kwargs[:amount_field_id] || "#{field_id}_amount").id %}
+              {% ancestor_cur = (ancestor_kwargs[:currency_field_id] || "#{field_id}_currency").id %}
+              {% ancestor_stores_currency = !ancestor_kwargs[:fixed_currency] %}
+              {% if ancestor_amt.stringify == amt_field_id_str &&
+                      ancestor_stores_currency == store_currency &&
+                      (!store_currency || ancestor_cur.stringify == cur_field_id_str) %}
+                {% inherited_money_field = true %}
+              {% end %}
+            {% end %}
+          {% end %}
+        {% end %}
+
+        {% unless inherited_money_field %}
+          {% for ancestor_model in model_type.ancestors %}
+            {% if ancestor_model.has_constant?("FIELDS_") %}
+              {% for generated_id in generated_ids %}
+                {% if ancestor_model.constant("FIELDS_")[generated_id[0]] %}
+                  {% raise "Money field '#{field_id}' would define its #{generated_id[1].id} field " +
+                           "'#{generated_id[0].id}', which is already defined by ancestor model '#{ancestor_model}'" %}
+                {% end %}
+              {% end %}
+            {% end %}
+          {% end %}
+
+          {% if model_type.has_constant?("FIELDS_") %}
+            {% for generated_id in generated_ids %}
+              {% if model_type.constant("FIELDS_")[generated_id[0]] %}
+                {% raise "Money field '#{field_id}' would define its #{generated_id[1].id} field " +
+                         "'#{generated_id[0].id}', which is already defined by model '#{model_type}'" %}
+              {% end %}
+            {% end %}
+          {% end %}
         {% end %}
 
         class ::{{ model_klass }}

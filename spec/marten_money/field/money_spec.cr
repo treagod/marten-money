@@ -347,6 +347,41 @@ describe MartenMoney::DB::Field::Money do
     end
   end
 
+  describe "identifier validation" do
+    it "rejects amount_field_id and currency_field_id resolving to the same identifier" do
+      expect_raises(
+        ArgumentError,
+        "Money field 'total' resolves amount_field_id and currency_field_id to the same identifier 'shared'"
+      ) do
+        MartenMoney::DB::Field::Money.new("total", amount_field_id: "shared", currency_field_id: :shared)
+      end
+    end
+
+    it "rejects an amount_field_id equal to the money field id" do
+      expect_raises(
+        ArgumentError,
+        "Money field 'total' resolves its amount_field_id to the money field's own identifier 'total'"
+      ) do
+        MartenMoney::DB::Field::Money.new("total", amount_field_id: :total)
+      end
+    end
+
+    it "rejects a currency_field_id equal to the money field id" do
+      expect_raises(
+        ArgumentError,
+        "Money field 'total' resolves its currency_field_id to the money field's own identifier 'total'"
+      ) do
+        MartenMoney::DB::Field::Money.new("total", currency_field_id: "total")
+      end
+    end
+
+    it "accepts an amount_field_id named like the currency identifier when no currency column is generated" do
+      field = MartenMoney::DB::Field::Money.new("total", fixed_currency: "EUR", amount_field_id: "total_currency")
+
+      field.fixed_currency.should eq Money::Currency.find("EUR")
+    end
+  end
+
   describe "precision handling" do
     it "stores conventional Money values exactly" do
       invoice = InvoiceOptions.create!(total: Money.new(10_05, "USD"))
