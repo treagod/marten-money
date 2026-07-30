@@ -16,6 +16,9 @@
   defined on the model (including other money fields' generated fields) or inherited from an abstract or
   concrete parent. Previously only identical explicit `amount_field_id`/`currency_field_id` literals were
   caught, and only when written with the same literal type.
+- Money `default:` amounts must now be integer literals. Floating-point amounts are rejected during macro
+  expansion with a message showing the supported syntax, instead of passing the shard's validation and
+  failing later inside the generated big_int field.
 
 ### Deprecated
 

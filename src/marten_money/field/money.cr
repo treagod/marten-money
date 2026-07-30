@@ -280,8 +280,11 @@ module MartenMoney
                         call.receiver.stringify == "Money" &&
                         call.args.size == 2 &&
                         call.args[0].is_a?(NumberLiteral) &&
+                        call.args[0].kind != :f32 &&
+                        call.args[0].kind != :f64 &&
                         call.args[1].is_a?(StringLiteral) %}
-              {% raise "default: must be a literal Money.new(integer, \"CUR\")" %}
+              {% raise "Money field '#{field_id}' default: must be a literal Money.new call with an integer " +
+                       "amount and a string currency, e.g. default: Money.new(10_00, \"EUR\")" %}
             {% end %}
 
             {% amount_lit = call.args[0] %}

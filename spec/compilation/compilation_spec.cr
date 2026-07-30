@@ -87,3 +87,49 @@ describe "Money field compile-time identifier validation" do
     )
   end
 end
+
+describe "Money field default literal validation" do
+  it "accepts an integer amount literal", tags: "compilation" do
+    status, output = compile_fixture("default_with_integer_literal.cr")
+
+    fail "Compilation failed:\n#{output}" unless status.success?
+  end
+
+  it "rejects a float amount literal", tags: "compilation" do
+    status, output = compile_fixture("default_with_float_literal.cr")
+
+    status.success?.should be_false
+    output.should contain(
+      "Money field 'total' default: must be a literal Money.new call with an integer amount and a string " \
+      "currency, e.g. default: Money.new(10_00, \"EUR\")"
+    )
+  end
+
+  it "rejects a variable amount", tags: "compilation" do
+    status, output = compile_fixture("default_with_variable_amount.cr")
+
+    status.success?.should be_false
+    output.should contain("Money field 'total' default: must be a literal Money.new call")
+  end
+
+  it "rejects a default built through another method call", tags: "compilation" do
+    status, output = compile_fixture("default_with_method_call.cr")
+
+    status.success?.should be_false
+    output.should contain("Money field 'total' default: must be a literal Money.new call")
+  end
+
+  it "rejects a missing argument", tags: "compilation" do
+    status, output = compile_fixture("default_with_missing_argument.cr")
+
+    status.success?.should be_false
+    output.should contain("Money field 'total' default: must be a literal Money.new call")
+  end
+
+  it "rejects an additional argument", tags: "compilation" do
+    status, output = compile_fixture("default_with_additional_argument.cr")
+
+    status.success?.should be_false
+    output.should contain("Money field 'total' default: must be a literal Money.new call")
+  end
+end
