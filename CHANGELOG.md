@@ -42,6 +42,9 @@
   abstract parent's fields to its concrete children.
 - `require "marten_money"` now works standalone: the shard's entrypoint requires `marten` itself instead of
   relying on the host application having loaded it beforehand.
+- Resolving the `currency` attribute of a `Money` value in a template no longer raises
+  `Marten::Template::Errors::UnsupportedValue`. The attribute now resolves to the currency code instead of the
+  `Money::Currency` object, which templates cannot represent.
 
 ## [0.1.0] - 2025-05-28
 

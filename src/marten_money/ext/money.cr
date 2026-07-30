@@ -6,7 +6,7 @@ struct ::Money
     when "amount"
       amount.to_f64
     when "currency"
-      currency
+      currency.code
     when "fractional"
       fractional.to_i64
     end
